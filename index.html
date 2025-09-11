@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ஆரோக்கிய பயன்பாடு</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Noto Sans Tamil', sans-serif;
+            transition: background-color 0.5s ease;
+        }
+        .pain-map-svg .body-part:hover {
+            fill: #4299e1;
+            cursor: pointer;
+            transition: fill 0.3s ease;
+        }
+        .pain-map-svg .body-part.pain {
+            fill: #ef4444;
+        }
+        .fixed-bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        .pain-map-container {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            margin: 0 auto;
+        }
+        .output-box {
+            width: 100%;
+            padding: 1.5rem;
+            background-color: #f3f4f6;
+            border-radius: 1rem;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #4b5563;
+            overflow-y: auto;
+        }
+        .output-box-container {
+            position: relative;
+            width: 100%;
+        }
+        .output-box-actions {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+        }
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #4f46e5;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 antialiased text-gray-800">
+
+<div id="app" class="min-h-screen flex flex-col items-center justify-center p-4"></div>
+
+<div id="bottom-bar" class="fixed-bottom-bar flex justify-center items-center gap-4 p-4 hidden"></div>
+
+<div id="message-box" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+        <p class="text-lg font-medium text-gray-800 text-center" id="message-text"></p>
+        <button onclick="closeMessageBox()" class="mt-4 w-full py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+            சரி
+        </button>
+    </div>
+</div>
+
+<script type="module">
+    // மொழிபெயர்ப்புகள்
+    const translations = {
+        'ta': {
+            loginTitle: '🔒உள்நுழைக',
+            usernamePlaceholder: 'பயனர் பெயர்',
+            passwordPlaceholder: 'கடவுச்சொல்',
+            loginButton: 'உள்நுழைய',
+            loginError: 'தயவுசெய்து பயனர் பெயர் மற்றும் கடவுச்சொல்லை உள்ளிடவும்.',
+            allFeaturesTitle: 'அனைத்து ஆரோக்கிய அம்சங்கள்',
+            backToFeatures: 'அம்சங்களுக்கு திரும்பு',
+            featureNotDeveloped: 'இந்த அம்சம் இன்னும் உருவாக்கப்படவில்லை.',
+            mainMenuTitle: 'முக்கிய மெனு',
+            stepTracker: 'படி கண்காணிப்பு',
+            heartRate: 'இதயத் துடிப்பு',
+            waterIntake: 'நீர் உட்கொள்ளல்',
+            moodJournal: 'மனநிலை & நன்றியுணர்வு நாட்குறிப்பு',
+            medicationReminder: 'மருந்து நினைவூட்டல்',
+            foodPlan: 'உணவுத் திட்டம்',
+            exerciseYoga: 'உடற்பயிற்சி & யோகா',
+            bodyPainMap: 'உடல் வலி வரைபடம்',
+            generalTips: 'பொதுவான சுகாதார குறிப்புகள்',
+            localTips: 'உள்ளூர் சுகாதார குறிப்புகள்',
+            beautyTips: 'வீட்டு அழகு குறிப்புகள்',
+            symptomFinder: 'அறிகுறிகள் கண்டுபிடிப்பு AI',
+            firstAid: 'முதலுதவி & அவசரம்',
+            foodRecipes: 'உணவு செய்முறைகள்',
+            search: 'தேடு',
+            submit: 'சமர்ப்பி',
+            yourTipHere: 'உங்கள் குறிப்பு இங்கே தோன்றும்.',
+            noRecipe: 'செய்முறை எதுவும் கிடைக்கவில்லை. மீண்டும் முயற்சிக்கவும்.',
+            loadingMessage: 'AI குறிப்பை உருவாக்குகிறது...',
+            inputPlaceholderGeneral: 'நீங்கள் விரும்பும் பொதுவான சுகாதார குறிப்புகளைப் பெறுங்கள்.',
+            inputPlaceholderBeauty: 'நீங்கள் விரும்பும் அழகு குறிப்புகளைப் பெறுங்கள்.',
+            inputPlaceholderLocal: 'நீங்கள் விரும்பும் உள்ளூர் சுகாதார குறிப்புகளைப் பெறுங்கள்.',
+            inputPlaceholderSymptom: 'உங்கள் அறிகுறிகள் பற்றிய தகவல்களைப் பெறுங்கள்.',
+            inputPlaceholderRecipes: 'ஒரு உணவின் பெயர் அல்லது மூலப்பொருட்களை உள்ளிட்டு செய்முறையைப் பெறுங்கள்.',
+            getTip: 'குறிப்பைப் பெறுங்கள்',
+            stepsCount: 'படிகள்: ',
+            startTracking: 'கண்காணிப்பை தொடங்கு',
+            stopTracking: 'கண்காணிப்பை நிறுத்து',
+            reset: 'படிகளை மீட்டமை',
+            stepMotivation: 'ஒரு நாளைக்கு 10,000 படிகள் நடப்பது உங்கள் ஆரோக்கியத்தை கணிசமாக மேம்படுத்தும்.',
+            journalPrompt: 'உங்கள் மனநிலையையும், நீங்கள் நன்றியுள்ள விஷயங்களையும் தினமும் பதிவு செய்யுங்கள்.',
+            moodSelect: '-- மனநிலையைத் தேர்வுசெய்யவும் --',
+            moodHappy: 'மகிழ்ச்சி',
+            moodSad: 'சோகம்',
+            moodNormal: 'சாதாரணம்',
+            moodAnxious: 'பதட்டம்',
+            moodGrateful: 'நன்றியுணர்வு',
+            saveEntry: 'பதிவை சேமி',
+            analyzeMood: 'மனநிலையை பகுப்பாய்வு செய்',
+            moodAnalysis: 'மனநிலை பகுப்பாய்வு',
+            moodAnalysisPlaceholder: 'உங்கள் மனநிலை பகுப்பாய்வு இங்கே தோன்றும்.',
+            yourEntries: 'உங்கள் பதிவுகள்',
+            entriesPlaceholder: 'உங்கள் நாட்குறிப்பு பதிவுகள் இங்கே தோன்றும்.',
+            foodPlanPrompt: 'உங்கள் உணவு, உடல்நலம், ஒவ்வாமை அல்லது பிரச்சனையை உள்ளிடவும்.',
+            painMapPrompt: 'உடலின் எந்தப் பகுதியில் வலி இருக்கிறதோ, அதைத் தொட்டு வலி மற்றும் அதன் விளக்கத்தை சேர்க்கவும்.',
+            removePain: 'நீங்கள் அதை மீண்டும் அழுத்தினால் வலி நீக்கப்படும்.',
+            aiTipTitle: 'AI உதவிக்குறிப்பு',
+            firstAidPrompt: 'அவசர காலங்களில் உதவிகள் மற்றும் தகவல்களை பெறவும்.',
+            emergencyContacts: 'அவசர தொடர்புகள்',
+            addContact: 'தொடர்பை சேர்',
+            noContacts: 'அவசர தொடர்புகள் எதுவும் இல்லை.',
+            symptomPrompt: 'உங்கள் அறிகுறிகள் பற்றிய தகவல்களைப் பெறுங்கள்.',
+            exercisePrompt: 'உங்கள் உடற்பயிற்சி, வலி அல்லது பிரச்சனைக்கான யோசனைகளை உள்ளிடவும்.',
+            painPromptPrefix: 'இந்த உடற்பகுதி வலிக்கு குறிப்புகள்:',
+            painMapTipInstructions: 'வலி உள்ள பகுதியைத் தொட்டு, அதன் பற்றிய குறிப்புகளைப் பெறுங்கள்.',
+            genericPainTip: 'உடல் வலிக்கு குறிப்புகளைப் பெற ஒரு உடல் பகுதியைத் தொடவும்.',
+            micListening: 'கேட்கிறது...',
+            micStopped: 'மைக்ரோஃபோன் நிறுத்திவிட்டது.',
+            speakTip: 'குறிப்பைப் பேசவும்',
+            stopSpeaking: 'பேசுவதை நிறுத்தவும்',
+            motionSensorNotSupported: 'உங்கள் சாதனம் மோஷன் சென்சாரை ஆதரிக்கவில்லை. (Your device does not support motion sensors).',
+            emergencyTip: 'அவசர உதவிக்குறிப்பு',
+            viewFront: 'முன்பக்க பார்வை',
+            viewBack: 'பின்திரும்பிய பார்வை',
+            getRecipe: 'செய்முறையைப் பெறுங்கள்',
+            ingredientsTitle: 'தேவையான பொருட்கள்',
+            instructionsTitle: 'செய்முறை',
+            cookingTime: 'சமையல் நேரம்',
+        },
+        'en': {
+            loginTitle: '🔒Login',
+            usernamePlaceholder: 'Username',
+            passwordPlaceholder: 'Password',
+            loginButton: 'Log In',
+            loginError: 'Please enter a username and password.',
+            allFeaturesTitle: 'All Health Features',
+            backToFeatures: 'Back to Features',
+            featureNotDeveloped: 'This feature is not yet developed.',
+            mainMenuTitle: 'Main Menu',
+            stepTracker: 'Step Tracker',
+            heartRate: 'Heart Rate',
+            waterIntake: 'Water Intake',
+            moodJournal: 'Mood & Gratitude Journal',
+            medicationReminder: 'Medication Reminder',
+            foodPlan: 'Food Plan',
+            exerciseYoga: 'Exercise & Yoga',
+            bodyPainMap: 'Body Pain Map',
+            generalTips: 'General Health Tips',
+            localTips: 'Local Health Tips',
+            beautyTips: 'Home Beauty Tips',
+            symptomFinder: 'Symptom Finder AI',
+            firstAid: 'First Aid & Emergency',
+            foodRecipes: 'Food Recipes',
+            search: 'Search',
+            submit: 'Submit',
+            yourTipHere: 'Your tip will appear here.',
+            noRecipe: 'No recipe available. Please try again.',
+            loadingMessage: 'Generating AI tip...',
+            inputPlaceholderGeneral: 'Get the general health tips you want.',
+            inputPlaceholderBeauty: 'Get the beauty tips you want.',
+            inputPlaceholderLocal: 'Get the local health tips you want.',
+            inputPlaceholderSymptom: 'Get information about your symptoms.',
+            inputPlaceholderRecipes: 'Enter a food name or ingredients to get the recipe.',
+            getTip: 'Get Tips',
+            stepsCount: 'Steps: ',
+            startTracking: 'Start Tracking',
+            stopTracking: 'Stop Tracking',
+            reset: 'Reset Steps',
+            stepMotivation: 'Walking 10,000 steps a day can significantly improve your health.',
+            journalPrompt: 'Record your mood and things you are grateful for daily.',
+            moodSelect: '-- Select a mood --',
+            moodHappy: 'Happy',
+            moodSad: 'Sad',
+            moodNormal: 'Normal',
+            moodAnxious: 'Anxious',
+            moodGrateful: 'Grateful',
+            saveEntry: 'Save Entry',
+            analyzeMood: 'Analyze Mood',
+            moodAnalysis: 'Mood Analysis',
+            moodAnalysisPlaceholder: 'Your mood analysis will appear here.',
+            yourEntries: 'Your Entries',
+            entriesPlaceholder: 'Your journal entries will appear here.',
+            foodPlanPrompt: 'Enter your diet, health, allergy or problem.',
+            painMapPrompt: 'Touch the area of your body where you have pain to add the pain and its description.',
+            removePain: 'You can touch it again to remove the pain.',
+            aiTipTitle: 'AI Tip',
+            firstAidPrompt: 'Get help and information in emergencies.',
+            emergencyContacts: 'Emergency Contacts',
+            addContact: 'Add Contact',
+            noContacts: 'No emergency contacts added.',
+            symptomPrompt: 'Get information about your symptoms.',
+            exercisePrompt: 'Enter your exercise, pain or problem for ideas.',
+            painPromptPrefix: 'Tips for this body part pain:',
+            painMapTipInstructions: 'Touch a painful area to get tips about it.',
+            genericPainTip: 'Touch a body part to get tips for pain in that area.',
+            micListening: 'Listening...',
+            micStopped: 'Microphone stopped.',
+            speakTip: 'Speak Tip',
+            stopSpeaking: 'Stop Speaking',
+            motionSensorNotSupported: 'Your device does not support motion sensors.',
+            emergencyTip: 'Emergency Tip',
+            viewFront: 'Front View',
+            viewBack: 'Back View',
+            getRecipe: 'Get Recipe',
+            ingredientsTitle: 'Ingredients',
+            instructionsTitle: 'Instructions',
+            cookingTime: 'Cooking Time',
+        }
+    };
+    
+    // புதுப்பிக்கப்பட்ட அம்சங்கள் பட்டியல்
+    const features = [
+        { id: 'stepTracker', icon: 'fa-walking', titleKey: 'stepTracker', color: 'bg-green-500' },
+        { id: 'generalTips', icon: 'fa-lightbulb', titleKey: 'generalTips', color: 'bg-yellow-500' },
+        { id: 'symptomFinder', icon: 'fa-stethoscope', titleKey: 'symptomFinder', color: 'bg-blue-500' },
+        { id: 'firstAid', icon: 'fa-hand-holding-medical', titleKey: 'firstAid', color: 'bg-red-500' },
+        { id: 'localTips', icon: 'fa-seedling', titleKey: 'localTips', color: 'bg-lime-500' },
+        { id: 'foodPlan', icon: 'fa-apple-alt', titleKey: 'foodPlan', color: 'bg-orange-500' },
+        { id: 'foodRecipes', icon: 'fa-utensils', titleKey: 'foodRecipes', color: 'bg-amber-500' },
+        { id: 'beautyTips', icon: 'fa-spa', titleKey: 'beautyTips', color: 'bg-pink-500' },
+        { id: 'exerciseYoga', icon: 'fa-running', titleKey: 'exerciseYoga', color: 'bg-indigo-500' },
+        { id: 'bodyPainMap', icon: 'fa-user-injured', titleKey: 'bodyPainMap', color: 'bg-purple-500' },
+        { id: 'moodJournal', icon: 'fa-grin-hearts', titleKey: 'moodJournal', color: 'bg-sky-500' },
+    ];
+
+    // Mapping from SVG part IDs to human-readable names for AI prompt generation
+    const painMapPartNames = {
+        'head-front': { ta: 'தலை', en: 'head' },
+        'neck-front': { ta: 'கழுத்து', en: 'neck' },
+        'chest': { ta: 'மார்பு', en: 'chest' },
+        'stomach': { ta: 'வயிறு', en: 'stomach' },
+        'shoulder-r-front': { ta: 'வலது தோள்பட்டை', en: 'right shoulder' },
+        'shoulder-l-front': { ta: 'இடது தோள்பட்டை', en: 'left shoulder' },
+        'arm-r-front': { ta: 'வலது கை', en: 'right arm' },
+        'arm-l-front': { ta: 'இடது கை', en: 'left arm' },
+        'elbow-r-front': { ta: 'வலது முழங்கை', en: 'right elbow' },
+        'elbow-l-front': { ta: 'இடது முழங்கை', en: 'left elbow' },
+        'forearm-r-front': { ta: 'வலது முன்கை', en: 'right forearm' },
+        'forearm-l-front': { ta: 'இடது முன்கை', en: 'left forearm' },
+        'hand-r-front': { ta: 'வலது கை', en: 'right hand' },
+        'hand-l-front': { ta: 'இடது கை', en: 'left hand' },
+        'waist-front': { ta: 'இடுப்பு', en: 'waist' },
+        'thigh-r-front': { ta: 'வலது தொடை', en: 'right thigh' },
+        'thigh-l-front': { ta: 'இடது தொடை', en: 'left thigh' },
+        'knee-r-front': { ta: 'வலது முழங்கால்', en: 'right knee' },
+        'knee-l-front': { ta: 'இடது முழங்கால்', en: 'left knee' },
+        'shin-r-front': { ta: 'வலது கால்', en: 'right shin' },
+        'shin-l-front': { ta: 'இடது கால்', en: 'left shin' },
+        'ankle-r-front': { ta: 'வலது கணுக்கால்', en: 'right ankle' },
+        'ankle-l-front': { ta: 'இடது கணுக்கால்', en: 'left ankle' },
+        'foot-r-front': { ta: 'வலது பாதம்', en: 'right foot' },
+        'foot-l-front': { ta: 'இடது பாதம்', en: 'left foot' },
+
+        // Back View
+        'head-back': { ta: 'தலை', en: 'head' },
+        'neck-back': { ta: 'கழுத்து', en: 'neck' },
+        'back': { ta: 'முதுகு', en: 'back' },
+        'buttocks': { ta: 'பிட்டம்', en: 'buttocks' },
+        'shoulder-r-back': { ta: 'வலது தோள்பட்டை', en: 'right shoulder' },
+        'shoulder-l-back': { ta: 'இடது தோள்பட்டை', en: 'left shoulder' },
+        'arm-r-back': { ta: 'வலது கை', en: 'right arm' },
+        'arm-l-back': { ta: 'இடது கை', en: 'left arm' },
+        'elbow-r-back': { ta: 'வலது முழங்கை', en: 'right elbow' },
+        'elbow-l-back': { ta: 'இடது முழங்கை', en: 'left elbow' },
+        'forearm-r-back': { ta: 'வலது முன்கை', en: 'right forearm' },
+        'forearm-l-back': { ta: 'இடது முன்கை', en: 'left forearm' },
+        'hand-r-back': { ta: 'வலது கை', en: 'right hand' },
+        'hand-l-back': { ta: 'இடது கை', en: 'left hand' },
+        'waist-back': { ta: 'இடுப்பு', en: 'waist' },
+        'thigh-r-back': { ta: 'வலது தொடை', en: 'right thigh' },
+        'thigh-l-back': { ta: 'இடது தொடை', en: 'left thigh' },
+        'knee-r-back': { ta: 'வலது முழங்கால்', en: 'right knee' },
+        'knee-l-back': { ta: 'இடது முழங்கால்', en: 'left knee' },
+        'calf-r-back': { ta: 'வலது கன்று', en: 'right calf' },
+        'calf-l-back': { ta: 'இடது கன்று', en: 'left calf' },
+        'ankle-r-back': { ta: 'வலது கணுக்கால்', en: 'right ankle' },
+        'ankle-l-back': { ta: 'இடது கணுக்கால்', en: 'left ankle' },
+        'foot-r-back': { ta: 'வலது பாதம்', en: 'right foot' },
+        'foot-l-back': { ta: 'இடது பாதம்', en: 'left foot' },
+    };
+
+    let currentPage = 'login';
+    let currentLang = 'ta';
+    let steps = 0;
+    let isTracking = false;
+    let lastAcceleration = { x: 0, y: 0, z: 0 };
+    const stepThreshold = 1.2; // Adjusted threshold for better step detection
+    let stepCooldown = false;
+    let cooldownTimer = null;
+    let stepTrackerHandler = null;
+    const moodEntries = [];
+    const foodPlan = [];
+    const emergencyContacts = [];
+    const painMapState = {};
+    let isFrontView = true;
+
+    const getTranslation = (key) => translations[currentLang][key] || key;
+    const appContainer = document.getElementById('app');
+    const bottomBar = document.getElementById('bottom-bar');
+    const messageBox = document.getElementById('message-box');
+    const messageText = document.getElementById('message-text');
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const synth = window.speechSynthesis;
+
+    let recognition = null;
+    let isListening = false;
+    let isSpeaking = false;
+
+    function showMessageBox(message) {
+        messageText.textContent = message;
+        messageBox.classList.remove('hidden');
+        messageBox.classList.add('flex');
+    }
+
+    function closeMessageBox() {
+        messageBox.classList.add('hidden');
+        messageBox.classList.remove('flex');
+    }
+
+    const toggleSpeechRecognition = (inputElementId, buttonElement) => {
+        const aiTipElement = document.getElementById('tipOutput') || document.getElementById('recipeOutput');
+        const input = document.getElementById(inputElementId);
+
+        if (!SpeechRecognition) {
+            showMessageBox('உங்கள் உலாவி பேச்சு அங்கீகாரத்தை ஆதரிக்கவில்லை. (Your browser does not support Speech Recognition).');
+            return;
+        }
+
+        if (isListening) {
+            recognition.stop();
+            isListening = false;
+            buttonElement.innerHTML = '<i class="fas fa-microphone"></i>';
+            if (aiTipElement) {
+                aiTipElement.textContent = getTranslation('micStopped');
+            }
+        } else {
+            recognition = new SpeechRecognition();
+            recognition.lang = currentLang === 'ta' ? 'ta-IN' : 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            recognition.onstart = () => {
+                isListening = true;
+                buttonElement.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+                if (aiTipElement) {
+                    aiTipElement.textContent = getTranslation('micListening');
+                }
+            };
+
+            recognition.onresult = (event) => {
+                const speechResult = event.results[0][0].transcript;
+                if (input) {
+                    input.value = speechResult;
+                }
+                if (aiTipElement) {
+                    aiTipElement.textContent = '';
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error', event.error);
+                showMessageBox(`பேச்சு அங்கீகாரம் பிழை: ${event.error}. (Speech recognition error: ${event.error})`);
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                buttonElement.innerHTML = '<i class="fas fa-microphone"></i>';
+                if (aiTipElement && aiTipElement.textContent === getTranslation('micListening')) {
+                    aiTipElement.textContent = '';
+                }
+            };
+
+            recognition.start();
+        }
+    };
+
+    const toggleSpeak = (text, buttonElement) => {
+        if (!synth) {
+            showMessageBox('உங்கள் உலாவி பேச்சு தொகுப்பை ஆதரிக்கவில்லை. (Your browser does not support speech synthesis).');
+            return;
+        }
+
+        if (isSpeaking) {
+            synth.cancel();
+            isSpeaking = false;
+            buttonElement.innerHTML = '<i class="fas fa-volume-up"></i>';
+        } else {
+            if (!text || text.trim() === getTranslation('yourTipHere') || text.trim() === getTranslation('noRecipe') || text.trim() === getTranslation('loadingMessage')) {
+                showMessageBox('பேச எதுவும் இல்லை.');
+                return;
+            }
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = currentLang === 'ta' ? 'ta-IN' : 'en-US';
+
+            utterance.onstart = () => {
+                isSpeaking = true;
+                buttonElement.innerHTML = '<i class="fas fa-volume-mute"></i>';
+            };
+
+            utterance.onend = () => {
+                isSpeaking = false;
+                buttonElement.innerHTML = '<i class="fas fa-volume-up"></i>';
+            };
+
+            synth.speak(utterance);
+        }
+    };
+    
+    // Function to parse and format general AI tips
+    const parseTipsAsList = (tipText) => {
+        const lines = tipText.split('\n').filter(line => line.trim() !== '');
+        
+        let html = '';
+        if (lines.length > 1) {
+            html += '<ol class="list-decimal list-inside space-y-2 mt-4 text-left">';
+            lines.forEach(line => {
+                const cleanedLine = line.replace(/^\s*(\d+\.|\*|-)\s*/, '').trim();
+                if (cleanedLine) {
+                    html += `<li class="text-gray-700">${cleanedLine}</li>`;
+                }
+            });
+            html += '</ol>';
+        } else {
+            html = `<p class="text-gray-700 mt-4 text-center">${tipText}</p>`;
+        }
+        return html;
+    };
+
+    // New function to parse and format AI recipes from JSON
+    const parseRecipe = (recipe) => {
+        let html = '';
+
+        if (!recipe || !recipe.ingredients || !recipe.instructions) {
+            html = `<p class="text-gray-700 mt-4 text-center">${getTranslation('noRecipe')}</p>`;
+            return html;
+        }
+
+        html += `<h2 class="text-2xl font-bold mt-4 mb-2 text-gray-800">${recipe.recipeName || 'செய்முறை'}</h2>`;
+        
+        if (recipe.cookingTime) {
+            html += `<p class="text-md text-gray-600 mb-4"><i class="fas fa-clock mr-2"></i>${getTranslation('cookingTime')}: ${recipe.cookingTime}</p>`;
+        }
+        
+        // Ingredients
+        html += `<h3 class="text-xl font-bold mt-4 mb-2 text-gray-800">${getTranslation('ingredientsTitle')}</h3>`;
+        html += '<ul class="list-disc list-inside space-y-1 text-left">';
+        recipe.ingredients.forEach(line => {
+            html += `<li class="text-gray-700">${line.trim()}</li>`;
+        });
+        html += '</ul>';
+        
+        // Instructions
+        html += `<h3 class="text-xl font-bold mt-4 mb-2 text-gray-800">${getTranslation('instructionsTitle')}</h3>`;
+        html += '<ol class="list-decimal list-inside space-y-2 text-left">';
+        recipe.instructions.forEach(line => {
+            html += `<li class="text-gray-700">${line.trim()}</li>`;
+        });
+        html += '</ol>';
+
+        return html;
+    };
+
+    const getAiTipFromPrompt = async (prompt, outputId) => {
+        const outputElement = document.getElementById(outputId);
+        outputElement.innerHTML = `<div class="loading-spinner"></div> <span class="ml-2">${getTranslation('loadingMessage')}</span>`;
+
+        const finalPrompt = `${prompt}
+Please provide a response in ${currentLang === 'ta' ? 'Tamil' : 'English'}. Format the response as a detailed, step-by-step numbered list. Add some relevant emojis for each step. Do not include any introductory or concluding sentences outside of the list.`;
+
+        try {
+            const chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: finalPrompt }] });
+            const payload = { contents: chatHistory };
+
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`API call failed with status: ${response.status}. Message: ${errorData.error.message}`);
+            }
+
+            const result = await response.json();
+
+            let tipText = getTranslation('yourTipHere');
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0) {
+                tipText = result.candidates[0].content.parts[0].text;
+            } else {
+                tipText = getTranslation('noRecipe');
+            }
+
+            outputElement.innerHTML = parseTipsAsList(tipText);
+        } catch (error) {
+            console.error('Error generating AI tip:', error);
+            outputElement.innerHTML = `<p class="text-red-500 text-center">உதவிக்குறிப்பை உருவாக்க முடியவில்லை: ${error.message}</p>`;
+        }
+    };
+    
+    // New function to get a recipe from AI using structured JSON output
+    const getAiRecipeFromPrompt = async (prompt, outputId) => {
+        const outputElement = document.getElementById(outputId);
+        outputElement.innerHTML = `<div class="loading-spinner"></div> <span class="ml-2">${getTranslation('loadingMessage')}</span>`;
+
+        // Create a specific prompt for recipes, requesting ingredients and instructions
+        const recipePrompt = `Please generate a recipe for "${prompt}". Include the recipe name, approximate cooking time, a list of ingredients, and a step-by-step list of instructions. Provide the response as a JSON object. The recipe should be in ${currentLang === 'ta' ? 'Tamil' : 'English'}.`;
+
+        try {
+            const chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: recipePrompt }] });
+            const payload = {
+                contents: chatHistory,
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "recipeName": { "type": "STRING" },
+                            "cookingTime": { "type": "STRING" },
+                            "ingredients": { "type": "ARRAY", "items": { "type": "STRING" } },
+                            "instructions": { "type": "ARRAY", "items": { "type": "STRING" } }
+                        }
+                    }
+                }
+            };
+            
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`API call failed with status: ${response.status}. Message: ${errorData.error.message}`);
+            }
+
+            const result = await response.json();
+            let recipeData = null;
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0) {
+                const jsonText = result.candidates[0].content.parts[0].text;
+                try {
+                    recipeData = JSON.parse(jsonText);
+                } catch (jsonError) {
+                    console.error('JSON parse error:', jsonError);
+                }
+            }
+            
+            outputElement.innerHTML = parseRecipe(recipeData);
+
+        } catch (error) {
+            console.error('Error generating AI recipe:', error);
+            outputElement.innerHTML = `<p class="text-red-500 text-center">செய்முறையை உருவாக்க முடியவில்லை: ${error.message}</p>`;
+        }
+    };
+
+    const render = () => {
+        appContainer.innerHTML = '';
+        bottomBar.innerHTML = '';
+
+        bottomBar.classList.add('hidden');
+
+        // Stop the motion sensor listener before rendering a new page
+        if (stepTrackerHandler) {
+            window.removeEventListener('devicemotion', stepTrackerHandler);
+            stepTrackerHandler = null;
+            isTracking = false;
+        }
+
+        switch (currentPage) {
+            case 'login':
+                renderLoginPage();
+                break;
+            case 'main':
+                renderMainPage();
+                break;
+            case 'stepTracker':
+                renderStepTrackerPage();
+                renderBottomBar();
+                break;
+            case 'moodJournal':
+                renderMoodJournalPage();
+                renderBottomBar();
+                break;
+            case 'foodRecipes':
+                renderFoodRecipesPage();
+                renderBottomBar();
+                break;
+            case 'bodyPainMap':
+                renderBodyPainMapPage();
+                renderBottomBar();
+                break;
+            case 'firstAid':
+                renderFirstAidPage();
+                renderBottomBar();
+                break;
+            case 'exerciseYoga':
+            case 'beautyTips':
+            case 'generalTips':
+            case 'localTips':
+            case 'symptomFinder':
+            case 'foodPlan':
+                const featureTitle = getTranslation(currentPage);
+                let placeholderKey = currentPage === 'foodPlan' ? 'foodPlanPrompt' : (currentPage === 'exerciseYoga' ? 'exercisePrompt' : `inputPlaceholder${currentPage.charAt(0).toUpperCase() + currentPage.slice(1)}`);
+                if (!translations[currentLang][placeholderKey]) {
+                    placeholderKey = 'yourTipHere';
+                }
+                renderAiTipsPage(featureTitle, getTranslation(placeholderKey), currentPage);
+                renderBottomBar();
+                break;
+            default:
+                renderSimplePage(getTranslation('featureNotDeveloped'), '🚫', '');
+                break;
+        }
+    };
+
+    const navigateTo = (page) => {
+        currentPage = page;
+        render();
+    };
+
+    const toggleLanguage = () => {
+        currentLang = currentLang === 'ta' ? 'en' : 'ta';
+        render();
+    };
+
+    const renderBottomBar = () => {
+        bottomBar.innerHTML = `
+            <button id="backButton" class="bg-gray-200 text-gray-800 p-3 rounded-full shadow-lg hover:bg-gray-300 transition-colors flex items-center justify-center">
+                <i class="fa fa-arrow-left"></i>
+                <span class="ml-2 font-bold">${getTranslation('backToFeatures')}</span>
+            </button>
+            <button id="langToggleBottom" class="bg-gray-200 text-gray-800 text-xl p-3 rounded-full shadow-lg hover:bg-gray-300 transition-colors flex items-center justify-center">
+                <i class="fa fa-globe"></i>
+            </button>
+        `;
+        bottomBar.classList.remove('hidden');
+        document.getElementById('backButton').addEventListener('click', () => navigateTo('main'));
+        document.getElementById('langToggleBottom').addEventListener('click', toggleLanguage);
+    };
+
+    const renderLoginPage = () => {
+        appContainer.innerHTML = `
+            <div class="flex items-center justify-center min-h-screen bg-gradient-to-br from-green-500 to-blue-500 p-4">
+                <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm transform transition-transform hover:scale-105">
+                    <div class="flex justify-end mb-4">
+                        <button id="langToggleTop" class="text-gray-500 hover:text-gray-800 focus:outline-none">
+                            <i class="fa fa-globe text-xl"></i>
+                        </button>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <h1 class="text-4xl font-extrabold text-gray-800 mb-6">${getTranslation('loginTitle')}</h1>
+                        <div class="w-full mb-4">
+                            <input type="text" id="username" placeholder="${getTranslation('usernamePlaceholder')}" class="w-full px-4 py-3 rounded-lg bg-gray-100 border-2 border-transparent focus:outline-none focus:border-indigo-500 transition-colors">
+                        </div>
+                        <div class="w-full mb-6">
+                            <input type="password" id="password" placeholder="${getTranslation('passwordPlaceholder')}" class="w-full px-4 py-3 rounded-lg bg-gray-100 border-2 border-transparent focus:outline-none focus:border-indigo-500 transition-colors">
+                        </div>
+                        <button id="loginButton" class="w-full py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors">
+                            ${getTranslation('loginButton')}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('loginButton').addEventListener('click', () => {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            if (username && password) {
+                navigateTo('main');
+            } else {
+                showMessageBox(getTranslation('loginError'));
+            }
+        });
+
+        document.getElementById('langToggleTop').addEventListener('click', toggleLanguage);
+    };
+
+    const renderMainPage = () => {
+        const featureHtml = features.map(f => `
+            <div id="${f.id}-tile" class="flex flex-col items-center justify-center ${f.color} text-white p-4 rounded-xl shadow-lg transform transition-transform hover:scale-105 active:scale-95 cursor-pointer">
+                <i class="fas ${f.icon} text-3xl mb-2"></i>
+                <span class="text-sm font-semibold text-center">${getTranslation(f.titleKey)}</span>
+            </div>
+        `).join('');
+
+        appContainer.innerHTML = `
+            <div class="w-full max-w-2xl px-4 py-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-3xl font-bold text-gray-800">${getTranslation('allFeaturesTitle')}</h1>
+                    <button id="langToggleMain" class="text-gray-500 hover:text-gray-800 focus:outline-none">
+                        <i class="fa fa-globe text-xl"></i>
+                    </button>
+                </div>
+                <div class="grid grid-cols-3 md:grid-cols-4 gap-4">
+                    ${featureHtml}
+                </div>
+            </div>
+        `;
+        
+        features.forEach(f => {
+            const tile = document.getElementById(`${f.id}-tile`);
+            if (tile) {
+                tile.addEventListener('click', () => {
+                    navigateTo(f.id);
+                });
+            }
+        });
+        document.getElementById('langToggleMain').addEventListener('click', toggleLanguage);
+    };
+
+    const renderAiTipsPage = (title, placeholderText, featureId) => {
+        const feature = features.find(f => f.id === featureId);
+        appContainer.innerHTML = `
+            <div class="w-full max-w-2xl px-4 py-8">
+                <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 flex flex-col items-center">
+                    <h2 class="text-2xl font-bold mb-4 text-gray-800 flex items-center justify-center">
+                        ${feature ? `<i class="fas ${feature.icon} text-2xl mr-3" style="color:${feature.color.replace('bg-', '#')};"></i>` : ''}
+                        ${title}
+                    </h2>
+                    <div class="w-full mb-4">
+                        <input type="text" id="tipInput" placeholder="${placeholderText}" class="w-full px-4 py-3 rounded-lg bg-gray-100 border-2 border-transparent focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+                    <div class="flex items-center gap-4 w-full mb-6">
+                        <button id="getTipBtn" class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors">
+                            <i class="fas fa-magic"></i> ${getTranslation('getTip')}
+                        </button>
+                        <button id="micBtn" class="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                    </div>
+                    <div class="output-box-container mb-4">
+                        <div id="tipOutput" class="output-box text-sm">
+                            <p>${getTranslation('yourTipHere')}</p>
+                        </div>
+                        <div class="output-box-actions flex space-x-2">
+                            <button id="copyBtn" class="bg-gray-300 text-gray-700 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-400 transition-colors">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <button id="speakBtn" class="bg-green-500 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-green-600 transition-colors">
+                                <i class="fas fa-volume-up"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('getTipBtn').addEventListener('click', () => {
+            const input = document.getElementById('tipInput').value;
+            if (input) {
+                getAiTipFromPrompt(input, 'tipOutput');
+            }
+        });
+        document.getElementById('micBtn').addEventListener('click', (e) => toggleSpeechRecognition('tipInput', e.currentTarget));
+        document.getElementById('speakBtn').addEventListener('click', (e) => {
+            const tipText = document.getElementById('tipOutput').innerText;
+            toggleSpeak(tipText, e.currentTarget);
+        });
+        document.getElementById('copyBtn').addEventListener('click', () => {
+            const tipText = document.getElementById('tipOutput').innerText;
+            try {
+                navigator.clipboard.writeText(tipText);
+                showMessageBox("உதவிக்குறிப்பு நகலெடுக்கப்பட்டது.");
+            } catch (err) {
+                const tempTextarea = document.createElement('textarea');
+                tempTextarea.value = tipText;
+                document.body.appendChild(tempTextarea);
+                tempTextarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempTextarea);
+                showMessageBox("உதவிக்குறிப்பு நகலெடுக்கப்பட்டது.");
+            }
+        });
+    };
+
+    const renderFoodRecipesPage = () => {
+        const feature = features.find(f => f.id === 'foodRecipes');
+        appContainer.innerHTML = `
+            <div class="w-full max-w-2xl px-4 py-8">
+                <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 flex flex-col items-center">
+                    <h2 class="text-2xl font-bold mb-4 text-gray-800 flex items-center justify-center">
+                        ${feature ? `<i class="fas ${feature.icon} text-2xl mr-3" style="color:${feature.color.replace('bg-', '#')};"></i>` : ''}
+                        ${getTranslation('foodRecipes')}
+                    </h2>
+                    <div class="w-full mb-4">
+                        <input type="text" id="recipeInput" placeholder="${getTranslation('inputPlaceholderRecipes')}" class="w-full px-4 py-3 rounded-lg bg-gray-100 border-2 border-transparent focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+                    <div class="flex items-center gap-4 w-full mb-6">
+                        <button id="getRecipeBtn" class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors">
+                            <i class="fas fa-magic"></i> ${getTranslation('getRecipe')}
+                        </button>
+                        <button id="micBtn" class="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                    </div>
+                    <div class="output-box-container mb-4">
+                        <div id="recipeOutput" class="output-box text-sm text-left">
+                            <p>${getTranslation('yourTipHere')}</p>
+                        </div>
+                        <div class="output-box-actions flex space-x-2">
+                            <button id="copyBtn" class="bg-gray-300 text-gray-700 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-400 transition-colors">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <button id="speakBtn" class="bg-green-500 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-green-600 transition-colors">
+                                <i class="fas fa-volume-up"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('getRecipeBtn').addEventListener('click', () => {
+            const input = document.getElementById('recipeInput').value;
+            if (input) {
+                getAiRecipeFromPrompt(input, 'recipeOutput');
+            }
+        });
+        document.getElementById('micBtn').addEventListener('click', (e) => toggleSpeechRecognition('recipeInput', e.currentTarget));
+        document.getElementById('speakBtn').addEventListener('click', (e) => {
+            const recipeText = document.getElementById('recipeOutput').innerText;
+            toggleSpeak(recipeText, e.currentTarget);
+        });
+        document.getElementById('copyBtn').addEventListener('click', () => {
+            const recipeText = document.getElementById('recipeOutput').innerText;
+            try {
+                navigator.clipboard.writeText(recipeText);
+                showMessageBox("செய்முறை நகலெடுக்கப்பட்டது.");
+            } catch (err) {
+                const tempTextarea = document.createElement('textarea');
+                tempTextarea.value = recipeText;
+                document.body.appendChild(tempTextarea);
+                tempTextarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempTextarea);
+                showMessageBox("செய்முறை நகலெடுக்கப்பட்டது.");
+            }
+        });
+    };
+
+    const renderStepTrackerPage = () => {
+        const feature = features.find(f => f.id === 'stepTracker');
+        appContainer.innerHTML = `
+            <div class="w-full max-w-md px-4 py-8 flex flex-col items-center">
+                <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 w-full">
+                    <h2 class="text-2xl font-bold mb-4 text-gray-800 flex items-center justify-center">
+                        ${feature ? `<i class="fas ${feature.icon} text-2xl mr-3" style="color:${feature.color.replace('bg-', '#')};"></i>` : ''}
+                        ${getTranslation('stepTracker')}
+                    </h2>
+                    <div class="flex items-center justify-center mb-6">
+                        <i class="fas fa-walking text-6xl text-green-500 animate-pulse"></i>
+                    </div>
+                    <div class="text-center">
+                        <h3 class="text-4xl font-extrabold text-green-600 mb-2" id="stepCount">${steps}</h3>
+                        <p class="text-lg text-gray-600">${getTranslation('stepsCount')}</p>
+                    </div>
+                    <p class="text-center text-sm text-gray-400 mt-4">${getTranslation('stepMotivation')}</p>
+                    <div class="flex justify-center gap-4 mt-6">
+                        <button id="toggleTrackingBtn" class="py-2 px-6 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition-colors">
+                            ${isTracking ? getTranslation('stopTracking') : getTranslation('startTracking')}
+                        </button>
+                        <button id="resetStepsBtn" class="py-2 px-6 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors">
+                            ${getTranslation('reset')}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('toggleTrackingBtn').addEventListener('click', toggleStepTracking);
+        document.getElementById('resetStepsBtn').addEventListener('click', () => {
+            steps = 0;
+            document.getElementById('stepCount').textContent = steps;
+        });
+    };
+
+    const renderMoodJournalPage = () => {
+        const feature = features.find(f => f.id === 'moodJournal');
+        appContainer.innerHTML = `
+            <div class="w-full max-w-2xl px-4 py-8">
+                <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 flex flex-col items-center">
+                    <h2 class="text-2xl font-bold mb-4 text-gray-800 flex items-center justify-center">
+                        ${feature ? `<i class="fas ${feature.icon} text-2xl mr-3" style="color:${feature.color.replace('bg-', '#')};"></i>` : ''}
+                        ${getTranslation('moodJournal')}
+                    </h2>
+                    <p class="text-center text-sm text-gray-500 mb-4">${getTranslation('journalPrompt')}</p>
+                    <div class="w-full mb-4">
+                        <select id="moodSelect" class="w-full px-4 py-3 rounded-lg bg-gray-100 border-2 border-transparent focus:outline-none focus:border-indigo-500 transition-colors">
+                            <option value="">${getTranslation('moodSelect')}</option>
+                            <option value="happy">${getTranslation('moodHappy')}</option>
+                            <option value="sad">${getTranslation('moodSad')}</option>
+                            <option value="normal">${getTranslation('moodNormal')}</option>
+                            <option value="anxious">${getTranslation('moodAnxious')}</option>
+                            <option value="grateful">${getTranslation('moodGrateful')}</option>
+                        </select>
+                    </div>
+                    <div class="w-full mb-4">
+                        <textarea id="gratitudeText" rows="4" placeholder="${getTranslation('yourEntries')}" class="w-full px-4 py-3 rounded-lg bg-gray-100 border-2 border-transparent focus:outline-none focus:border-indigo-500 transition-colors"></textarea>
+                    </div>
+                    <div class="flex justify-center w-full gap-4 mb-6">
+                        <button id="saveEntryBtn" class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors">
+                            ${getTranslation('saveEntry')}
+                        </button>
+                        <button id="analyzeMoodBtn" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                            ${getTranslation('analyzeMood')}
+                        </button>
+                    </div>
+                    <div id="moodAnalysisOutput" class="output-box w-full text-center text-gray-700">
+                        ${getTranslation('moodAnalysisPlaceholder')}
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('saveEntryBtn').addEventListener('click', saveMoodEntry);
+        document.getElementById('analyzeMoodBtn').addEventListener('click', analyzeMood);
+        renderMoodEntries();
+    };
+
+    const renderBodyPainMapPage = () => {
+        const feature = features.find(f => f.id === 'bodyPainMap');
+        appContainer.innerHTML = `
+            <div class="w-full max-w-2xl px-4 py-8">
+                <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 flex flex-col items-center">
+                    <h2 class="text-2xl font-bold mb-4 text-gray-800 flex items-center justify-center">
+                        ${feature ? `<i class="fas ${feature.icon} text-2xl mr-3" style="color:${feature.color.replace('bg-', '#')};"></i>` : ''}
+                        ${getTranslation('bodyPainMap')}
+                    </h2>
+                    <p class="text-center text-sm text-gray-500 mb-4">${getTranslation('painMapPrompt')}</p>
+                    <div class="w-full flex justify-center mb-4">
+                        <div class="pain-map-container" id="painMapSvgContainer"></div>
+                    </div>
+                    <div class="flex justify-center gap-4 w-full mb-6">
+                        <button id="viewToggleBtn" class="flex-1 py-3 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors">
+                            ${getTranslation('viewBack')}
+                        </button>
+                    </div>
+                    <div class="output-box-container w-full">
+                        <div id="painTipOutput" class="output-box text-sm text-left">
+                            <p>${getTranslation('genericPainTip')}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        renderBodySvg();
+        document.getElementById('viewToggleBtn').addEventListener('click', () => {
+            isFrontView = !isFrontView;
+            document.getElementById('viewToggleBtn').textContent = isFrontView ? getTranslation('viewBack') : getTranslation('viewFront');
+            renderBodySvg();
+        });
+    };
+
+    const renderFirstAidPage = () => {
+        const feature = features.find(f => f.id === 'firstAid');
+        appContainer.innerHTML = `
+            <div class="w-full max-w-2xl px-4 py-8">
+                <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 flex flex-col items-center">
+                    <h2 class="text-2xl font-bold mb-4 text-gray-800 flex items-center justify-center">
+                        ${feature ? `<i class="fas ${feature.icon} text-2xl mr-3" style="color:${feature.color.replace('bg-', '#')};"></i>` : ''}
+                        ${getTranslation('firstAid')}
+                    </h2>
+                    <p class="text-center text-sm text-gray-500 mb-4">${getTranslation('firstAidPrompt')}</p>
+                    <div class="w-full mb-4">
+                        <input type="text" id="emergencyInput" placeholder="உதாரணமாக: பாம்பு கடி" class="w-full px-4 py-3 rounded-lg bg-gray-100 border-2 border-transparent focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+                    <button id="getEmergencyTipBtn" class="w-full py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors">
+                        <i class="fas fa-plus-square"></i> ${getTranslation('emergencyTip')}
+                    </button>
+                    <div id="emergencyTipOutput" class="output-box w-full mt-6 text-sm text-left">
+                        <p>${getTranslation('yourTipHere')}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('getEmergencyTipBtn').addEventListener('click', () => {
+            const input = document.getElementById('emergencyInput').value;
+            if (input) {
+                getAiTipFromPrompt(`First aid for ${input}`, 'emergencyTipOutput');
+            }
+        });
+    };
+
+    const renderSimplePage = (title, icon, content) => {
+        appContainer.innerHTML = `
+            <div class="w-full max-w-2xl px-4 py-8">
+                <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 text-center flex flex-col items-center justify-center">
+                    <div class="text-6xl mb-4">${icon}</div>
+                    <h2 class="text-2xl font-bold mb-4 text-gray-800">${title}</h2>
+                    <p class="text-gray-600">${content}</p>
+                </div>
+            </div>
+        `;
+        renderBottomBar();
+    };
+
+    // Placeholder functions for now
+    const toggleStepTracking = () => {
+        isTracking = !isTracking;
+        const btn = document.getElementById('toggleTrackingBtn');
+        if (isTracking) {
+            btn.textContent = getTranslation('stopTracking');
+            if (window.DeviceMotionEvent) {
+                stepTrackerHandler = (event) => {
+                    const acceleration = event.accelerationIncludingGravity;
+                    const deltaX = Math.abs(acceleration.x - lastAcceleration.x);
+                    const deltaY = Math.abs(acceleration.y - lastAcceleration.y);
+                    const deltaZ = Math.abs(acceleration.z - lastAcceleration.z);
+
+                    const movement = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+
+                    if (movement > stepThreshold && !stepCooldown) {
+                        steps++;
+                        document.getElementById('stepCount').textContent = steps;
+                        stepCooldown = true;
+                        clearTimeout(cooldownTimer);
+                        cooldownTimer = setTimeout(() => {
+                            stepCooldown = false;
+                        }, 500); // Cooldown period
+                    }
+                    lastAcceleration = { x: acceleration.x, y: acceleration.y, z: acceleration.z };
+                };
+                window.addEventListener('devicemotion', stepTrackerHandler);
+            } else {
+                showMessageBox(getTranslation('motionSensorNotSupported'));
+                isTracking = false;
+                btn.textContent = getTranslation('startTracking');
+            }
+        } else {
+            btn.textContent = getTranslation('startTracking');
+            if (stepTrackerHandler) {
+                window.removeEventListener('devicemotion', stepTrackerHandler);
+                stepTrackerHandler = null;
+            }
+        }
+    };
+
+    const saveMoodEntry = async () => {
+        const mood = document.getElementById('moodSelect').value;
+        const gratitude = document.getElementById('gratitudeText').value;
+        if (mood || gratitude) {
+            moodEntries.push({ date: new Date().toLocaleString(), mood, gratitude });
+            renderMoodEntries();
+            showMessageBox('பதிவு சேமிக்கப்பட்டது!');
+        } else {
+            showMessageBox('தயவுசெய்து மனநிலையையோ அல்லது குறிப்பையோ உள்ளிடவும்.');
+        }
+    };
+
+    const analyzeMood = () => {
+        const moodOutput = document.getElementById('moodAnalysisOutput');
+        if (moodEntries.length === 0) {
+            moodOutput.innerHTML = `<p class="text-gray-700">${getTranslation('entriesPlaceholder')}</p>`;
+            return;
+        }
+
+        const moodCounts = moodEntries.reduce((acc, entry) => {
+            acc[entry.mood] = (acc[entry.mood] || 0) + 1;
+            return acc;
+        }, {});
+
+        let analysisText = `<h3 class="font-bold text-lg mb-2">${getTranslation('moodAnalysis')}</h3>`;
+        for (const mood in moodCounts) {
+            analysisText += `<p>• ${getTranslation(`mood${mood.charAt(0).toUpperCase() + mood.slice(1)}`)}: ${moodCounts[mood]} முறை</p>`;
+        }
+        moodOutput.innerHTML = analysisText;
+    };
+
+    const renderMoodEntries = () => {
+        const gratitudeTextarea = document.getElementById('gratitudeText');
+        if (gratitudeTextarea) {
+            gratitudeTextarea.value = moodEntries.map(entry => `[${entry.date}] - மனநிலை: ${getTranslation(`mood${entry.mood.charAt(0).toUpperCase() + entry.slice(1)}`)} - குறிப்பு: ${entry.gratitude}`).join('\n\n');
+        }
+    };
+    
+    const renderBodySvg = () => {
+        const svgContainer = document.getElementById('painMapSvgContainer');
+        const view = isFrontView ? 'front' : 'back';
+        const svgContent = getSvg(view);
+        svgContainer.innerHTML = svgContent;
+
+        document.querySelectorAll('.body-part').forEach(path => {
+            const partId = path.id;
+            // Restore pain state from the map
+            if (painMapState[partId]) {
+                path.classList.add('pain');
+            }
+            path.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevents clicks from bubbling up
+                path.classList.toggle('pain');
+                if (path.classList.contains('pain')) {
+                    painMapState[partId] = true;
+                    const partName = painMapPartNames[partId][currentLang];
+                    getAiTipFromPrompt(`${getTranslation('painPromptPrefix')} ${partName}.`, 'painTipOutput');
+                } else {
+                    delete painMapState[partId];
+                    document.getElementById('painTipOutput').innerHTML = `<p>${getTranslation('genericPainTip')}</p>`;
+                }
+            });
+        });
+    };
+
+    const getSvg = (view) => {
+        if (view === 'front') {
+            return `
+                <svg class="pain-map-svg w-full h-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 357 588">
+                    <!-- Head -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="head-front" d="M178.5,19c11.8,0,21.5,9.7,21.5,21.5c0,11.8-9.7,21.5-21.5,21.5c-11.8,0-21.5-9.7-21.5-21.5C157,28.7,166.7,19,178.5,19z"/>
+                    <!-- Neck -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="neck-front" d="M178.5,62c-7,0-12.7,5.7-12.7,12.7v24c0,7,5.7,12.7,12.7,12.7c7,0,12.7-5.7,12.7-12.7V74.7C191.2,67.7,185.5,62,178.5,62z"/>
+                    <!-- Chest -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="chest" d="M178.5,111.4c-35,0-63.5,28.5-63.5,63.5c0,35,28.5,63.5,63.5,63.5c35,0,63.5-28.5,63.5-63.5C242,139.9,213.5,111.4,178.5,111.4z"/>
+                    <!-- Arms -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="arm-l-front" d="M115,175.7c-1.3,0-2.4,1.1-2.4,2.4v95.6c0,1.3,1.1,2.4,2.4,2.4s2.4-1.1,2.4-2.4v-95.6C117.4,176.8,116.3,175.7,115,175.7z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="arm-r-front" d="M242,175.7c-1.3,0-2.4,1.1-2.4,2.4v95.6c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-95.6C244.4,176.8,243.3,175.7,242,175.7z"/>
+                    <!-- Elbows -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="elbow-l-front" d="M115,273.7c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C117.4,274.8,116.3,273.7,115,273.7z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="elbow-r-front" d="M242,273.7c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C244.4,274.8,243.3,273.7,242,273.7z"/>
+                    <!-- Forearms -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="forearm-l-front" d="M115,302.7c-1.3,0-2.4,1.1-2.4,2.4v54.7c0,1.3,1.1,2.4,2.4,2.4s2.4-1.1,2.4-2.4v-54.7C117.4,303.8,116.3,302.7,115,302.7z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="forearm-r-front" d="M242,302.7c-1.3,0-2.4,1.1-2.4,2.4v54.7c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-54.7C244.4,303.8,243.3,302.7,242,302.7z"/>
+                    <!-- Hands -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="hand-l-front" d="M115,360.2c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C117.4,361.3,116.3,360.2,115,360.2z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="hand-r-front" d="M242,360.2c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C244.4,361.3,243.3,360.2,242,360.2z"/>
+                    <!-- Stomach -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="stomach" d="M178.5,246.7c-35,0-63.5,28.5-63.5,63.5c0,35,28.5,63.5,63.5,63.5c35,0,63.5-28.5,63.5-63.5C242,275.2,213.5,246.7,178.5,246.7z"/>
+                    <!-- Waist -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="waist-front" d="M178.5,373.7c-15.5,0-28.1,12.6-28.1,28.1v24c0,15.5,12.6,28.1,28.1,28.1c15.5,0,28.1-12.6,28.1-28.1v-24C206.6,386.3,194,373.7,178.5,373.7z"/>
+                    <!-- Thighs -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="thigh-l-front" d="M140,425.7c-1.3,0-2.4,1.1-2.4,2.4v62.4c0,1.3,1.1,2.4,2.4,2.4s2.4-1.1,2.4-2.4v-62.4C142.4,426.8,141.3,425.7,140,425.7z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="thigh-r-front" d="M217,425.7c-1.3,0-2.4,1.1-2.4,2.4v62.4c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-62.4C219.4,426.8,218.3,425.7,217,425.7z"/>
+                    <!-- Knees -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="knee-l-front" d="M140,490.5c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C142.4,491.6,141.3,490.5,140,490.5z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="knee-r-front" d="M217,490.5c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C219.4,491.6,218.3,490.5,217,490.5z"/>
+                    <!-- Shins -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="shin-l-front" d="M140,519.5c-1.3,0-2.4,1.1-2.4,2.4v54.7c0,1.3,1.1,2.4,2.4,2.4s2.4-1.1,2.4-2.4v-54.7C142.4,520.6,141.3,519.5,140,519.5z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="shin-r-front" d="M217,519.5c-1.3,0-2.4,1.1-2.4,2.4v54.7c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-54.7C219.4,520.6,218.3,519.5,217,519.5z"/>
+                    <!-- Ankles -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="ankle-l-front" d="M140,578.5c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C142.4,579.6,141.3,578.5,140,578.5z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="ankle-r-front" d="M217,578.5c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C219.4,579.6,218.3,578.5,217,578.5z"/>
+                    <!-- Feet -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="foot-l-front" d="M115,607.5c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C117.4,608.6,116.3,607.5,115,607.5z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="foot-r-front" d="M242,607.5c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C244.4,608.6,243.3,607.5,242,607.5z"/>
+                </svg>
+            `;
+        } else {
+            return `
+                <svg class="pain-map-svg w-full h-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 357 588">
+                    <!-- Head -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="head-back" d="M178.5,19c11.8,0,21.5,9.7,21.5,21.5c0,11.8-9.7,21.5-21.5,21.5c-11.8,0-21.5-9.7-21.5-21.5C157,28.7,166.7,19,178.5,19z"/>
+                    <!-- Neck -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="neck-back" d="M178.5,62c-7,0-12.7,5.7-12.7,12.7v24c0,7,5.7,12.7,12.7,12.7c7,0,12.7-5.7,12.7-12.7V74.7C191.2,67.7,185.5,62,178.5,62z"/>
+                    <!-- Back -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="back" d="M178.5,111.4c-35,0-63.5,28.5-63.5,63.5c0,35,28.5,63.5,63.5,63.5c35,0,63.5-28.5,63.5-63.5C242,139.9,213.5,111.4,178.5,111.4z"/>
+                    <!-- Arms -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="arm-l-back" d="M115,175.7c-1.3,0-2.4,1.1-2.4,2.4v95.6c0,1.3,1.1,2.4,2.4,2.4s2.4-1.1,2.4-2.4v-95.6C117.4,176.8,116.3,175.7,115,175.7z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="arm-r-back" d="M242,175.7c-1.3,0-2.4,1.1-2.4,2.4v95.6c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-95.6C244.4,176.8,243.3,175.7,242,175.7z"/>
+                    <!-- Elbows -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="elbow-l-back" d="M115,273.7c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C117.4,274.8,116.3,273.7,115,273.7z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="elbow-r-back" d="M242,273.7c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C244.4,274.8,243.3,273.7,242,273.7z"/>
+                    <!-- Forearms -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="forearm-l-back" d="M115,302.7c-1.3,0-2.4,1.1-2.4,2.4v54.7c0,1.3,1.1,2.4,2.4,2.4s2.4-1.1,2.4-2.4v-54.7C117.4,303.8,116.3,302.7,115,302.7z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="forearm-r-back" d="M242,302.7c-1.3,0-2.4,1.1-2.4,2.4v54.7c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-54.7C244.4,303.8,243.3,302.7,242,302.7z"/>
+                    <!-- Hands -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="hand-l-back" d="M115,360.2c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C117.4,361.3,116.3,360.2,115,360.2z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="hand-r-back" d="M242,360.2c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C244.4,361.3,243.3,360.2,242,360.2z"/>
+                    <!-- Buttocks -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="buttocks" d="M178.5,246.7c-35,0-63.5,28.5-63.5,63.5c0,35,28.5,63.5,63.5,63.5c35,0,63.5-28.5,63.5-63.5C242,275.2,213.5,246.7,178.5,246.7z"/>
+                    <!-- Waist -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="waist-back" d="M178.5,373.7c-15.5,0-28.1,12.6-28.1,28.1v24c0,15.5,12.6,28.1,28.1,28.1c15.5,0,28.1-12.6,28.1-28.1v-24C206.6,386.3,194,373.7,178.5,373.7z"/>
+                    <!-- Thighs -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="thigh-l-back" d="M140,425.7c-1.3,0-2.4,1.1-2.4,2.4v62.4c0,1.3,1.1,2.4,2.4,2.4s2.4-1.1,2.4-2.4v-62.4C142.4,426.8,141.3,425.7,140,425.7z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="thigh-r-back" d="M217,425.7c-1.3,0-2.4,1.1-2.4,2.4v62.4c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-62.4C219.4,426.8,218.3,425.7,217,425.7z"/>
+                    <!-- Knees -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="knee-l-back" d="M140,490.5c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C142.4,491.6,141.3,490.5,140,490.5z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="knee-r-back" d="M217,490.5c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C219.4,491.6,218.3,490.5,217,490.5z"/>
+                    <!-- Calves -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="calf-l-back" d="M140,519.5c-1.3,0-2.4,1.1-2.4,2.4v54.7c0,1.3,1.1,2.4,2.4,2.4s2.4-1.1,2.4-2.4v-54.7C142.4,520.6,141.3,519.5,140,519.5z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="calf-r-back" d="M217,519.5c-1.3,0-2.4,1.1-2.4,2.4v54.7c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-54.7C219.4,520.6,218.3,519.5,217,519.5z"/>
+                    <!-- Ankles -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="ankle-l-back" d="M140,578.5c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C142.4,579.6,141.3,578.5,140,578.5z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="ankle-r-back" d="M217,578.5c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C219.4,579.6,218.3,578.5,217,578.5z"/>
+                    <!-- Feet -->
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="foot-l-back" d="M115,607.5c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C117.4,608.6,116.3,607.5,115,607.5z"/>
+                    <path class="body-part fill-gray-300 stroke-gray-500 stroke-2" id="foot-r-back" d="M242,607.5c-1.3,0-2.4,1.1-2.4,2.4v24c0,1.3,1.1,2.4,2.4,2.4c1.3,0,2.4-1.1,2.4-2.4v-24C244.4,608.6,243.3,607.5,242,607.5z"/>
+                </svg>
+            `;
+        }
+    };
+    
+    // Initial render
+    window.onload = () => {
+        render();
+    };
+
+</script>
+
+</body>
+</html>
